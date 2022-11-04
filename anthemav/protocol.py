@@ -59,6 +59,7 @@ ZONELOOKUP["VOL"] = {"description": "Zone Volume"}
 ZONELOOKUP["INP"] = {"description": "Zone current input"}
 ZONELOOKUP["MUT"] = {"description": "Zone mute", "0": "Unmuted", "1": "Muted"}
 # MRX 540, 740, 1140
+
 ZONELOOKUP["PVOL"] = {"description": "Zone Volume in percent"}
 
 LOOKUP["IDR"] = {"description": "Region"}
@@ -186,6 +187,10 @@ COMMANDS_MDX_IGNORE = [
     "Z1IRV",
     "Z1VIR",
 ]
+COMMANDS_X10_IGNORE = [
+    "IDR",
+    "Z1PVOL"
+]
 COMMANDS_MDX = ["MAC"]
 
 EMPTY_MAC = "00:00:00:00:00:00"
@@ -193,6 +198,7 @@ UNKNOWN_MODEL = "Unknown Model"
 
 MODEL_X40 = "x40"
 MODEL_X20 = "x20"
+MODEL_X10 = "x10"
 MODEL_MDX = "mdx"
 
 
@@ -692,6 +698,11 @@ class AVR(asyncio.Protocol):
             self._ignored_commands = COMMANDS_X20 + COMMANDS_X40 + COMMANDS_MDX_IGNORE
             self._model_series = MODEL_MDX
             self.query("MAC")
+        elif "10" in model:
+            self.log.debug("Set Command to Model MDX")
+            self._ignored_commands = COMMANDS_X20 + COMMANDS_X40 + COMMANDS_X10_IGNORE
+            self._model_series = MODEL_X10
+            self.query("IDN")
         else:
             self.log.debug("Set Command to Model x20")
             self._ignored_commands = COMMANDS_X40 + COMMANDS_MDX
@@ -1322,9 +1333,12 @@ class Zone:
         >>> volvalue = volume
         >>> volume = 20
         """
+        print(self._avr._model_series)
         if self._avr._model_series == MODEL_X40 and "PVOL" in self.values:
             return self._get_integer("PVOL")
         elif self._avr._model_series == MODEL_MDX:
+            return self._get_integer("VOL")
+        elif self._avr._model_series == MODEL_X10:
             return self._get_integer("VOL")
         else:
             return self.attenuation_to_volume(self.attenuation)
@@ -1335,6 +1349,8 @@ class Zone:
             if self._avr._model_series == MODEL_X40:
                 self.command(f"PVOL{value}")
             elif self._avr._model_series == MODEL_MDX:
+                self.command(f"VOL{value}")
+            elif self._avr._model_series == MODEL_X10:
                 self.command(f"VOL{value}")
             else:
                 self.attenuation = self.volume_to_attenuation(value)
